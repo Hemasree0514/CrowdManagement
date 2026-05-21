@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Crowd Management System</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #f7f7f5;
+    --surface:  #ffffff;
+    --surface2: #f1efe8;
+    --border:   rgba(0,0,0,0.12);
+    --border2:  rgba(0,0,0,0.22);
+    --text:     #1a1a18;
+    --text2:    #6b6b66;
+    --text3:    #9c9a92;
+    --radius:   10px;
+    --radius-sm:6px;
+    --green:    #3b6d11;   --green-bg:  #EAF3DE;
+    --amber:    #854f0b;   --amber-bg:  #FAEEDA;
+    --red:      #a32d2d;   --red-bg:    #FCEBEB;
+    --blue:     #185fa5;   --blue-bg:   #E6F1FB;
+    --purple:   #534ab7;   --purple-bg: #EEEDFE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#1c1c1a; --surface:#252523; --surface2:#2e2e2c;
+      --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.20);
+      --text:#e8e6df; --text2:#9c9a92; --text3:#6b6b66;
+      --green:#97c459; --green-bg:#173404; --amber:#ef9f27; --amber-bg:#412402;
+      --red:#f09595; --red-bg:#501313; --blue:#85b7eb; --blue-bg:#042c53;
+      --purple:#afa9ec; --purple-bg:#26215c;
+    }
+  }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+  .app { max-width:1100px; margin:0 auto; padding:20px 16px 40px; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:.5px solid var(--border); }
+  .header h1 { font-size:18px; font-weight:500; }
+  .header p  { font-size:12px; color:var(--text2); margin-top:2px; }
+  .ws-pill { display:flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:500; background:var(--surface2); color:var(--text2); cursor:pointer; border:.5px solid var(--border2); }
+  .ws-dot  { width:7px; height:7px; border-radius:50%; background:var(--text3); }
+  .ws-pill.connected    { background:var(--green-bg); color:var(--green); }
+  .ws-pill.connected .ws-dot { background:var(--green); animation:pulse 1.4s ease-in-out infinite; }
+  .ws-pill.sim    { background:var(--amber-bg); color:var(--amber); }
+  .ws-pill.sim .ws-dot { background:var(--amber); }
+
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+  .stat { background:var(--surface2); border-radius:var(--radius-sm); padding:12px 14px; }
+  .stat-label { font-size:11px; color:var(--text2); margin-bottom:4px; }
+  .stat-value { font-size:24px; font-weight:500; line-height:1.1; }
+
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
+  .tab { padding:6px 14px; font-size:13px; border-radius:20px; border:.5px solid var(--border2); background:transparent; color:var(--text2); cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:background .15s; }
+  .tab:hover { background:var(--surface2); }
+  .tab.active { background:var(--surface2); color:var(--text); font-weight:500; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .card { background:var(--surface); border:.5px solid var(--border); border-radius:var(--radius); padding:16px; }
+  .card-title { font-size:12px; font-weight:500; color:var(--text2); margin-bottom:12px; text-transform:uppercase; letter-spacing:.04em; }
+
+  .zone-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .zone-cell { border-radius:var(--radius-sm); padding:10px; cursor:pointer; border:1.5px solid transparent; transition:opacity .15s; }
+  .zone-cell:hover { opacity:.85; }
+  .zone-cell.selected { border-color:var(--border2); }
+  .zone-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+  .zone-name { font-size:11px; color:var(--text2); margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar { height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:3px; transition:width .4s; }
+
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .detail-stat { background:var(--surface2); border-radius:var(--radius-sm); padding:10px 12px; }
+  .detail-stat-lbl { font-size:10px; color:var(--text2); }
+  .detail-stat-val { font-size:20px; font-weight:500; }
+  .status-pill { margin-top:10px; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:500; }
+
+  .cam-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .cam-card { background:var(--surface2); border-radius:var(--radius-sm); padding:10px; position:relative; overflow:hidden; }
+  .cam-label { font-size:11px; font-weight:500; }
+  .cam-sub   { font-size:10px; color:var(--text2); }
+  .scan-line { position:absolute; left:0; right:0; height:1.5px; background:rgba(40,200,120,.35); animation:scan 2.2s linear infinite; }
+
+  /*
+   * REAL CAMERA FEED INTEGRATION
+   * In production, replace each <canvas> with:
+   *   <img  src="http://CAM_IP/mjpeg"  class="cam-feed-img">  ← for MJPEG
+   *   <video src="http://CAM_IP/hls.m3u8" autoplay muted>      ← for HLS
+   */
+  .cam-feed-img  { width:100%; border-radius:5px; display:block; object-fit:cover; height:100px; }
+  canvas.cam-canvas { border-radius:5px; display:block; width:100%; }
+
+  .alert-row { padding:9px 11px; border-radius:var(--radius-sm); margin-bottom:7px; font-size:12px; border-left:3px solid transparent; }
+  .alert-critical { background:var(--red-bg);    border-left-color:var(--red); }
+  .alert-warning  { background:var(--amber-bg);  border-left-color:var(--amber); }
+  .alert-info     { background:var(--blue-bg);   border-left-color:var(--blue); }
+  .alert-vip      { background:var(--purple-bg); border-left-color:var(--purple); }
+  .alert-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+
+  .msg-row { padding:8px 10px; border-radius:var(--radius-sm); margin-bottom:6px; background:var(--surface2); }
+  .msg-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+  .msg-meta { display:flex; align-items:center; gap:6px; }
+
+  .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:500; white-space:nowrap; }
+  .badge-green  { background:var(--green-bg);  color:var(--green); }
+  .badge-amber  { background:var(--amber-bg);  color:var(--amber); }
+  .badge-red    { background:var(--red-bg);    color:var(--red); }
+  .badge-blue   { background:var(--blue-bg);   color:var(--blue); }
+  .badge-purple { background:var(--purple-bg); color:var(--purple); }
+
+  .vip-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:.5px solid var(--border); }
+  .vip-row:last-child { border-bottom:none; }
+  .face-box { width:48px; height:48px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:500; }
+  .vip-name { font-size:13px; font-weight:500; }
+  .vip-role { font-size:11px; color:var(--text2); }
+  .vip-meta { font-size:11px; color:var(--text3); margin-top:2px; }
+
+  canvas#heatmap { border-radius:var(--radius-sm); display:block; width:100%; }
+
+  .scenarios { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .btn { padding:7px 14px; font-size:13px; border-radius:7px; border:.5px solid var(--border2); background:var(--surface); color:var(--text); cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:background .15s; }
+  .btn:hover { background:var(--surface2); }
+  .btn-danger { border-color:var(--red); color:var(--red); }
+  .btn-purple { border-color:var(--purple); color:var(--purple); }
+
+  /* Connection banner */
+  #conn-banner { padding:8px 14px; border-radius:var(--radius-sm); margin-bottom:14px; font-size:12px; display:none; }
+  #conn-banner.show { display:block; }
+  #conn-banner.info { background:var(--blue-bg); color:var(--blue); }
+  #conn-banner.warn { background:var(--amber-bg); color:var(--amber); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  @keyframes scan  { 0%{top:0} 100%{top:100%} }
+  @media (max-width:700px) {
+    .stats-row { grid-template-columns:1fr 1fr; }
+    .zone-grid  { grid-template-columns:1fr 1fr; }
+    .cam-grid   { grid-template-columns:1fr 1fr; }
+    .two-col    { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1><i class="ti ti-eye" style="font-size:18px;vertical-align:-2px;margin-right:6px"></i>AI Crowd Management System</h1>
+      <p>Autonomous surveillance · Real-time density · VIP recognition · Zero-intervention alert dispatch</p>
+    </div>
+    <div class="ws-pill" id="ws-pill" onclick="reconnectWS()" title="Click to reconnect">
+      <span class="ws-dot" id="ws-dot"></span>
+      <span id="ws-label">Connecting…</span>
+    </div>
+  </div>
+
+  <!-- Connection banner -->
+  <div id="conn-banner" class="info show">
+    <i class="ti ti-info-circle"></i>
+    <strong>Prototype mode:</strong> Running with simulated data.
+    To connect real cameras, start the backend: <code>python backend/main.py</code>
+    and open this page from <code>http://localhost:8000</code>.
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat"><div class="stat-label"><i class="ti ti-users"></i> Total crowd</div><div class="stat-value" id="stat-total">0</div></div>
+    <div class="stat"><div class="stat-label"><i class="ti ti-bell"></i> Active alerts</div><div class="stat-value" style="color:var(--red)" id="stat-alerts">0</div></div>
+    <div class="stat"><div class="stat-label"><i class="ti ti-user-check"></i> VIPs detected</div><div class="stat-value" style="color:var(--purple)" id="stat-vips">0</div></div>
+    <div class="stat"><div class="stat-label"><i class="ti ti-send"></i> Msgs dispatched</div><div class="stat-value" style="color:var(--green)" id="stat-msgs">0</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('map',this)"><i class="ti ti-layout-grid"></i> Zone map</button>
+    <button class="tab" onclick="switchTab('cams',this)"><i class="ti ti-video"></i> Camera feeds</button>
+    <button class="tab" onclick="switchTab('alerts',this)"><i class="ti ti-bell"></i> Alerts</button>
+    <button class="tab" onclick="switchTab('msgs',this)"><i class="ti ti-message"></i> Dispatched messages</button>
+    <button class="tab" onclick="switchTab('vip',this)"><i class="ti ti-user-star"></i> VIP log</button>
+  </div>
+
+  <!-- TAB: Zone map -->
+  <div id="tab-map" class="tab-panel active">
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Venue zone map — click a zone</div>
+        <div class="zone-grid" id="zone-grid"></div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text2)">
+          <span><span style="width:9px;height:9px;border-radius:2px;background:var(--green);display:inline-block;margin-right:3px;vertical-align:middle"></span>Safe</span>
+          <span><span style="width:9px;height:9px;border-radius:2px;background:var(--amber);display:inline-block;margin-right:3px;vertical-align:middle"></span>Caution</span>
+          <span><span style="width:9px;height:9px;border-radius:2px;background:var(--red);display:inline-block;margin-right:3px;vertical-align:middle"></span>Critical</span>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Zone detail</div><div id="zone-detail">Select a zone to see real-time data</div></div>
+    </div>
+    <div class="card"><div class="card-title">Live density heatmap</div><canvas id="heatmap" height="110"></canvas></div>
+  </div>
+
+  <!-- TAB: Camera feeds -->
+  <div id="tab-cams" class="tab-panel">
+    <div class="cam-grid" id="cam-grid"></div>
+    <div style="margin-top:10px;padding:10px 14px;background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text2)">
+      <i class="ti ti-info-circle"></i>
+      <strong>Production note:</strong> Replace each canvas below with
+      <code>&lt;img src="http://CAM_IP/mjpeg"&gt;</code> (MJPEG) or
+      <code>&lt;video src="http://CAM_IP/stream.m3u8" autoplay muted&gt;</code> (HLS).
+      The Python backend annotates frames with YOLO bounding boxes before streaming.
+    </div>
+  </div>
+
+  <!-- TAB: Alerts -->
+  <div id="tab-alerts" class="tab-panel">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin:0">AI alert log</div>
+        <button class="btn" onclick="clearAlerts()" style="font-size:11px;padding:4px 10px"><i class="ti ti-trash"></i> Clear</button>
+      </div>
+      <div id="alert-log"></div>
+    </div>
+  </div>
+
+  <!-- TAB: Messages -->
+  <div id="tab-msgs" class="tab-panel">
+    <div class="card">
+      <div class="card-title">Autonomous message dispatch log</div>
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text2)">Every message was generated and sent by the AI engine — zero human intervention.</div>
+      <div id="msg-log"></div>
+    </div>
+  </div>
+
+  <!-- TAB: VIP -->
+  <div id="tab-vip" class="tab-panel">
+    <div class="card"><div class="card-title">VIP / dignitary face recognition log</div><div id="vip-log"></div></div>
+  </div>
+
+  <!-- Scenario buttons -->
+  <div class="scenarios">
+    <button class="btn btn-danger" onclick="injectScenario('surge')"><i class="ti ti-alert-triangle"></i> Crowd surge</button>
+    <button class="btn btn-danger" onclick="injectScenario('bottleneck')"><i class="ti ti-arrows-left-right"></i> Bottleneck</button>
+    <button class="btn btn-danger" onclick="injectScenario('panic')"><i class="ti ti-run"></i> Panic flow</button>
+    <button class="btn btn-purple" onclick="injectScenario('vip')"><i class="ti ti-user-star"></i> VIP arrival</button>
+    <button class="btn" onclick="injectScenario('reset')"><i class="ti ti-refresh"></i> Reset zones</button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   DATA DEFINITIONS
+   ══════════════════════════════════════════════════════════════════════ */
+const ZONES = [
+  {id:'A',name:'Main entrance',  cap:300,security:'Unit Alpha',  cam:'CAM-01'},
+  {id:'B',name:'North corridor', cap:200,security:'Unit Beta',   cam:'CAM-02'},
+  {id:'C',name:'Main stage',     cap:500,security:'Unit Gamma',  cam:'CAM-03'},
+  {id:'D',name:'East gate',      cap:150,security:'Unit Delta',  cam:'CAM-04'},
+  {id:'E',name:'Food court',     cap:250,security:'Unit Echo',   cam:'CAM-05'},
+  {id:'F',name:'VIP lounge',     cap:80, security:'Unit Foxtrot',cam:'CAM-06'},
+  {id:'G',name:'West exit',      cap:180,security:'Unit Golf',   cam:'CAM-07'},
+  {id:'H',name:'Parking bay',    cap:400,security:'Unit Hotel',  cam:'CAM-08'},
+];
+const CAMERAS = [
+  {id:'CAM-01',zone:'A',label:'Main entrance — wide angle'},
+  {id:'CAM-02',zone:'B',label:'North corridor — mid shot'},
+  {id:'CAM-03',zone:'C',label:'Stage front — elevated'},
+  {id:'CAM-04',zone:'D',label:'East gate — entry point'},
+  {id:'CAM-05',zone:'E',label:'Food court — overhead'},
+  {id:'CAM-06',zone:'F',label:'VIP lounge — controlled'},
+];
+const VIP_DB = [
+  {name:'Collector A. Sharma',role:'District Collector',       initials:'AS',color:'#534ab7',bg:'#EEEDFE'},
+  {name:'SP R. Reddy',        role:'Superintendent of Police', initials:'RR',color:'#185fa5',bg:'#E6F1FB'},
+  {name:'Min. K. Rao',        role:'Cabinet Minister',         initials:'KR',color:'#712b13',bg:'#FAECE7'},
+  {name:'DCP S. Kumar',       role:'Deputy Commissioner',      initials:'SK',color:'#27500a',bg:'#EAF3DE'},
+];
+
+/* ══════════════════════════════════════════════════════════════════════
+   STATE
+   ══════════════════════════════════════════════════════════════════════ */
+const state = {
+  densities: Object.fromEntries(ZONES.map(z => [z.id, Math.round(z.cap*(0.2+Math.random()*0.3))])),
+  alerts: [], messages: [], vipEvents: [],
+  totalAlerts: 0, totalVips: 0, totalMsgs: 0,
+  selectedZone: null, tick: 0, wsMode: false,
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   WEBSOCKET — connects to the Python backend
+   Falls back to simulation if backend is not running
+   ══════════════════════════════════════════════════════════════════════ */
+let ws = null;
+let simTimer = null;
+const WS_URL = `ws://${location.hostname}:8765`;
+
+function connectWS() {
+  setWsStatus('connecting');
+  try {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      setWsStatus('connected');
+      stopSim();             // stop JS simulation — backend takes over
+      state.wsMode = true;
+      document.getElementById('conn-banner').classList.remove('show');
+    };
+
+    ws.onmessage = (event) => {
+      /*
+        Backend sends JSON every ~1 second:
+        {
+          tick, zones, alerts, messages, vip_events, total_crowd
+        }
+        where zones = { "A": { count, capacity, pct, level, trend, flow } ... }
+      */
+      const data = JSON.parse(event.data);
+      applyWSData(data);
+    };
+
+    ws.onclose = () => {
+      setWsStatus('disconnected');
+      state.wsMode = false;
+      startSim();            // fall back to simulation
+      setTimeout(connectWS, 5000);  // retry in 5 s
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+  } catch (e) {
+    setWsStatus('disconnected');
+    startSim();
+  }
+}
+
+function reconnectWS() {
+  if (ws) { ws.close(); ws = null; }
+  connectWS();
+}
+
+function setWsStatus(s) {
+  const pill  = document.getElementById('ws-pill');
+  const label = document.getElementById('ws-label');
+  pill.className = 'ws-pill';
+  if (s === 'connected')    { pill.classList.add('connected'); label.textContent = 'Live — backend connected'; }
+  else if (s === 'sim')     { pill.classList.add('sim');       label.textContent = 'Simulation mode'; }
+  else if (s === 'connecting') {                               label.textContent = 'Connecting…'; }
+  else                      {                                  label.textContent = 'Disconnected — click to retry'; }
+}
+
+function applyWSData(data) {
+  // Update zone densities from backend
+  if (data.zones) {
+    Object.entries(data.zones).forEach(([id, z]) => {
+      state.densities[id] = z.count;
+    });
+  }
+  if (data.alerts)     state.alerts    = data.alerts;
+  if (data.messages)   state.messages  = data.messages;
+  if (data.vip_events) state.vipEvents = data.vip_events;
+
+  const activeAlerts = (data.alerts||[]).filter(a=>a.type==='critical'||a.type==='warning').length;
+  document.getElementById('stat-alerts').textContent = activeAlerts;
+  document.getElementById('stat-total').textContent  = data.total_crowd || 0;
+  document.getElementById('stat-vips').textContent   = (data.vip_events||[]).length;
+  document.getElementById('stat-msgs').textContent   = (data.messages||[]).length;
+
+  refreshUI();
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   FALLBACK SIMULATION (used when backend is not running)
+   ══════════════════════════════════════════════════════════════════════ */
+function startSim() {
+  if (simTimer) return;
+  setWsStatus('sim');
+  document.getElementById('conn-banner').classList.add('show');
+  simTimer = setInterval(simTick, 1800);
+}
+function stopSim() {
+  if (simTimer) { clearInterval(simTimer); simTimer = null; }
+}
+
+function simTick() {
+  state.tick++;
+  ZONES.forEach(z => {
+    const d = Math.round((Math.random()-0.46)*14);
+    state.densities[z.id] = Math.max(4, Math.min(z.cap+12, state.densities[z.id]+d));
+    const lvl = level(state.densities[z.id], z.cap);
+    if (lvl==='critical' && Math.random()<0.12) {
+      addAlert('critical', `Critical — Zone ${z.id}`, `Density ${state.densities[z.id]}/${z.cap}. Action required.`);
+      addMsg('SMS',   z.security, `ALERT Zone ${z.id}: crowd at ${state.densities[z.id]}/${z.cap}. Redirect now.`);
+      addMsg('Radio', 'Command Centre', `Zone ${z.id} critical. Activating overflow protocol.`);
+    } else if (lvl==='warning' && Math.random()<0.07) {
+      addAlert('warning', `Caution — Zone ${z.id}`, `Density ${state.densities[z.id]}/${z.cap}.`);
+      addMsg('SMS', z.security, `CAUTION Zone ${z.id}: ${Math.round(state.densities[z.id]/z.cap*100)}% occupancy.`);
+    }
+  });
+  if (state.tick % 18 === 0) {
+    const vip  = VIP_DB[Math.floor(Math.random()*VIP_DB.length)];
+    const cam  = CAMERAS[Math.floor(Math.random()*CAMERAS.length)];
+    const zone = ZONES.find(z=>z.id===cam.zone);
+    const conf = (94+Math.random()*5.5).toFixed(1);
+    state.vipEvents.push({...vip, cam:cam.id, zone:`Zone ${zone.id} — ${zone.name}`, conf, time:nowTime()});
+    state.totalVips++;
+    document.getElementById('stat-vips').textContent = state.totalVips;
+    addAlert('vip', `VIP detected — ${vip.name}`, `${vip.role} on ${cam.id}. Confidence: ${conf}%.`);
+    addMsg('App', zone.security, `[CONFIDENTIAL] ${vip.name} (${vip.role}) at ${cam.id} — Zone ${zone.id}. Escort now.`);
+    if (document.getElementById('tab-vip').classList.contains('active')) buildVipLog();
+  }
+  refreshUI();
+}
+
+function addAlert(type, title, body) {
+  state.alerts.push({type, title, body, time:nowTime()});
+  state.totalAlerts = state.alerts.filter(a=>a.type==='critical'||a.type==='warning').length;
+  document.getElementById('stat-alerts').textContent = state.totalAlerts;
+  if (document.getElementById('tab-alerts').classList.contains('active')) buildAlertLog();
+}
+function addMsg(channel, to, text) {
+  state.messages.push({channel, to, text, time:nowTime()});
+  state.totalMsgs++;
+  document.getElementById('stat-msgs').textContent = state.totalMsgs;
+  if (document.getElementById('tab-msgs').classList.contains('active')) buildMsgLog();
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════════════════════════ */
+function level(d,cap) { const p=d/cap; return p>=0.85?'critical':p>=0.6?'warning':'safe'; }
+function lCol(l) { return l==='critical'?'var(--red)':l==='warning'?'var(--amber)':'var(--green)'; }
+function lBg(l)  { return l==='critical'?'var(--red-bg)':l==='warning'?'var(--amber-bg)':'var(--green-bg)'; }
+function nowTime() { return new Date().toTimeString().slice(0,8); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   UI RENDERERS
+   ══════════════════════════════════════════════════════════════════════ */
+function refreshUI() {
+  updateStats();
+  buildZoneGrid();
+  buildCamGrid();
+  drawHeatmap();
+  if (state.selectedZone) renderZoneDetail(state.selectedZone);
+}
+
+function updateStats() {
+  const total = Object.values(state.densities).reduce((a,b)=>a+b,0);
+  document.getElementById('stat-total').textContent = total;
+}
+
+function buildZoneGrid() {
+  const g = document.getElementById('zone-grid');
+  if (!g) return;
+  g.innerHTML = ZONES.map(z => {
+    const d=state.densities[z.id], pct=Math.round(d/z.cap*100), l=level(d,z.cap);
+    return `<div class="zone-cell${state.selectedZone===z.id?' selected':''}" style="background:${lBg(l)}" onclick="selectZone('${z.id}')">
+      <div class="zone-header">
+        <span style="font-size:12px;font-weight:500;color:${lCol(l)}">Zone ${z.id}</span>
+        <span style="font-size:10px;color:${lCol(l)}">${pct}%</span>
+      </div>
+      <div class="zone-name">${z.name}</div>
+      <div class="bar"><div class="bar-fill" style="width:${Math.min(pct,100)}%;background:${lCol(l)}"></div></div>
+      <div style="font-size:10px;color:var(--text2);margin-top:3px">${d} / ${z.cap}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectZone(id) {
+  state.selectedZone = id;
+  buildZoneGrid();
+  renderZoneDetail(id);
+}
+
+function renderZoneDetail(id) {
+  const z=ZONES.find(x=>x.id===id), d=state.densities[id];
+  const pct=Math.round(d/z.cap*100), l=level(d,z.cap);
+  const trend = d>z.cap*0.6
+    ? `<i class="ti ti-trending-up" style="color:var(--red);font-size:14px"></i> Rising`
+    : `<i class="ti ti-trending-down" style="color:var(--green);font-size:14px"></i> Stable`;
+  const statusText = l==='critical'?'CRITICAL — alert dispatched':l==='warning'?'CAUTION — monitoring':'NORMAL — no action';
+  document.getElementById('zone-detail').innerHTML = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:16px;font-weight:500">${z.name}</div>
+      <div style="font-size:12px;color:var(--text2)">Security: ${z.security} &nbsp;·&nbsp; ${z.cam}</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-stat"><div class="detail-stat-lbl">Current</div><div class="detail-stat-val" style="color:${lCol(l)}">${d}</div></div>
+      <div class="detail-stat"><div class="detail-stat-lbl">Capacity</div><div class="detail-stat-val">${z.cap}</div></div>
+    </div>
+    <div style="font-size:12px;margin-bottom:8px">${trend}</div>
+    <div class="bar" style="height:8px"><div class="bar-fill" style="width:${Math.min(pct,100)}%;background:${lCol(l)}"></div></div>
+    <div style="font-size:11px;color:var(--text2);margin-top:4px">${pct}% occupancy</div>
+    <div class="status-pill" style="background:${lBg(l)};color:${lCol(l)}">AI: ${statusText}</div>`;
+}
+
+function buildCamGrid() {
+  const g = document.getElementById('cam-grid');
+  if (!g) return;
+  g.innerHTML = CAMERAS.map(c => {
+    const z=ZONES.find(x=>x.id===c.zone), d=state.densities[c.zone];
+    const pct=Math.round(d/z.cap*100), l=level(d,z.cap);
+    return `<div class="cam-card">
+      <div class="scan-line"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;position:relative;z-index:1">
+        <span class="cam-label">${c.id}</span>
+        <span style="font-size:10px;color:${lCol(l)};display:flex;align-items:center;gap:3px">
+          <span style="width:6px;height:6px;border-radius:50%;background:${lCol(l)};${l==='critical'?'animation:pulse 1s infinite':''}"></span>${l}
+        </span>
+      </div>
+      <!--
+        PRODUCTION: Replace this canvas with a real stream:
+        <img class="cam-feed-img" src="${c.stream_url || '#'}" onerror="this.src='placeholder.png'">
+        or:
+        <video class="cam-feed-img" src="${c.hls_url || ''}" autoplay muted playsinline></video>
+      -->
+      <canvas class="cam-canvas" id="canvas-${c.id}" width="300" height="100" style="position:relative;z-index:1"></canvas>
+      <div style="position:relative;z-index:1;margin-top:5px">
+        <div class="cam-sub">${c.label}</div>
+        <div style="font-size:11px;font-weight:500;color:${lCol(l)};margin-top:2px">Density: ${pct}% &nbsp;·&nbsp; ~${d} persons</div>
+      </div>
+    </div>`;
+  }).join('');
+  CAMERAS.forEach(c => drawCamCanvas(c));
+}
+
+function drawCamCanvas(cam) {
+  const canvas = document.getElementById(`canvas-${cam.id}`);
+  if (!canvas) return;
+  const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+  const z=ZONES.find(x=>x.id===cam.zone), d=state.densities[cam.zone], pct=d/z.cap;
+  ctx.fillStyle='rgba(18,24,36,.75)'; ctx.fillRect(0,0,W,H);
+  const seed=cam.id.charCodeAt(4);
+  const count=Math.round(pct*40);
+  for(let i=0;i<count;i++){
+    const x=8+((seed*i*37+i*13)%(W-16)), y=8+((seed*i*19+i*7)%(H-16));
+    ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2);
+    ctx.fillStyle=pct>0.85?'rgba(220,90,90,.85)':pct>0.6?'rgba(220,160,40,.85)':'rgba(80,190,140,.85)';
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y-5,2,0,Math.PI*2); ctx.fillStyle='rgba(200,220,255,.45)'; ctx.fill();
+  }
+  ctx.strokeStyle='rgba(100,160,255,.07)'; ctx.lineWidth=.5;
+  for(let gx=0;gx<W;gx+=30){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+  for(let gy=0;gy<H;gy+=30){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+  ctx.strokeStyle='rgba(80,200,160,.55)'; ctx.lineWidth=1.5;
+  [[0,0,1,1],[W,0,-1,1],[0,H,1,-1],[W,H,-1,-1]].forEach(([cx,cy,sx,sy])=>{
+    const bl=10; ctx.beginPath(); ctx.moveTo(cx+sx*bl,cy); ctx.lineTo(cx,cy); ctx.lineTo(cx,cy+sy*bl); ctx.stroke();
+  });
+  ctx.fillStyle='rgba(80,200,160,.9)'; ctx.font='500 9px monospace';
+  ctx.fillText(`${Math.round(pct*100)}%  ${d}p`,6,H-6);
+}
+
+function buildAlertLog() {
+  const el=document.getElementById('alert-log');
+  if(!el) return;
+  if(!state.alerts.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">No alerts yet — AI will generate them automatically.</div>';return;}
+  el.innerHTML=state.alerts.slice().reverse().slice(0,25).map(a=>`
+    <div class="alert-row alert-${a.type}">
+      <div class="alert-top"><span style="font-weight:500">${a.title}</span><span style="font-size:10px;color:var(--text3)">${a.time}</span></div>
+      <div>${a.body}</div>
+    </div>`).join('');
+}
+
+function buildMsgLog() {
+  const el=document.getElementById('msg-log');
+  if(!el) return;
+  if(!state.messages.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">No messages dispatched yet.</div>';return;}
+  const chBadge=ch=>ch==='SMS'?'badge-green':ch==='Radio'?'badge-amber':ch==='App'?'badge-purple':'badge-blue';
+  el.innerHTML=state.messages.slice().reverse().slice(0,40).map(m=>`
+    <div class="msg-row">
+      <div class="msg-top">
+        <div class="msg-meta"><span class="badge ${chBadge(m.channel)}">${m.channel}</span><span style="font-size:12px;font-weight:500">${m.to}</span></div>
+        <span style="font-size:10px;color:var(--text3)">${m.time}</span>
+      </div>
+      <div style="font-size:11.5px">${m.text}</div>
+    </div>`).join('');
+}
+
+function buildVipLog() {
+  const el=document.getElementById('vip-log');
+  if(!el) return;
+  if(!state.vipEvents.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">No VIPs detected yet.</div>';return;}
+  el.innerHTML=state.vipEvents.slice().reverse().map(v=>`
+    <div class="vip-row">
+      <div class="face-box" style="background:${v.bg};color:${v.color}">${v.initials}</div>
+      <div style="flex:1">
+        <div class="vip-name">${v.name}</div>
+        <div class="vip-role">${v.role}</div>
+        <div class="vip-meta"><i class="ti ti-camera" style="font-size:11px"></i> ${v.cam} &nbsp;·&nbsp; <i class="ti ti-map-pin" style="font-size:11px"></i> ${v.zone} &nbsp;·&nbsp; Conf: ${v.conf}% &nbsp;·&nbsp; ${v.time}</div>
+      </div>
+      <span class="badge badge-purple">Identified</span>
+    </div>`).join('');
+}
+
+function drawHeatmap() {
+  const canvas=document.getElementById('heatmap'); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth||800; const W=canvas.width, H=canvas.height=110;
+  ctx.clearRect(0,0,W,H);
+  const zw=W/ZONES.length;
+  ZONES.forEach((z,i)=>{
+    const d=state.densities[z.id], pct=d/z.cap;
+    const r=Math.round(pct*220), g2=Math.round((1-pct)*170+30);
+    ctx.fillStyle=`rgba(${r},${g2},40,.82)`;
+    ctx.fillRect(i*zw+2,0,zw-4,H);
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.textAlign='center';
+    ctx.font='500 11px sans-serif'; ctx.fillText(`Zone ${z.id}`,i*zw+zw/2,H/2-8);
+    ctx.font='400 10px sans-serif'; ctx.fillText(z.name.split(' ')[0],i*zw+zw/2,H/2+6);
+    ctx.font='500 12px sans-serif'; ctx.fillText(`${Math.round(pct*100)}%`,i*zw+zw/2,H/2+20);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SCENARIO INJECTION
+   ══════════════════════════════════════════════════════════════════════ */
+function injectScenario(type) {
+  if(type==='surge') {
+    state.densities['C']=480;
+    addAlert('critical','Crowd surge — Zone C','Sudden spike to 96%. AI activating overflow routing.');
+    addMsg('SMS','Unit Gamma','SURGE Zone C: density critical. Open Gate 5. Deploy barriers.');
+    addMsg('Radio','All units','Zone C surge. Units Echo/Golf redirect to main stage perimeter.');
+    addMsg('App','Gate Control','Auto-open gates 4 and 5 for Zone C overflow.');
+  } else if(type==='bottleneck') {
+    state.densities['B']=193; state.densities['A']=282;
+    addAlert('warning','Bottleneck forming — Zone A/B','Bidirectional flow. Entry exceeds exit by 40%.');
+    addMsg('SMS','Unit Alpha','BOTTLENECK North corridor. One-way flow. Block Gate 2. Redirect Gate 3.');
+    addMsg('Radio','Unit Beta','Zone B bottleneck — halt incoming flow. Coordinate with Alpha.');
+  } else if(type==='panic') {
+    state.densities['C']=475;
+    addAlert('critical','Anomalous flow — Zone C','Reverse crowd movement. Panic signature detected.');
+    addMsg('SMS','Unit Gamma','URGENT: abnormal flow Zone C. Do NOT block exits. Calming protocol.');
+    addMsg('Radio','All units','Possible panic Zone C. All units standby. Medical team to east exit.');
+    addMsg('SMS','Medical team','Crowd anomaly Zone C. Position at east exit immediately.');
+  } else if(type==='vip') {
+    const vip=VIP_DB[Math.floor(Math.random()*VIP_DB.length)];
+    const cam=CAMERAS[Math.floor(Math.random()*CAMERAS.length)];
+    const zone=ZONES.find(z=>z.id===cam.zone);
+    const conf=(95+Math.random()*4.5).toFixed(1);
+    state.vipEvents.push({...vip,cam:cam.id,zone:`Zone ${zone.id} — ${zone.name}`,conf,time:nowTime()});
+    state.totalVips++;
+    document.getElementById('stat-vips').textContent=state.totalVips;
+    addAlert('vip',`VIP arrival — ${vip.name}`,`${vip.role} entering. Confidence: ${conf}%.`);
+    addMsg('App',zone.security,`[CONFIDENTIAL] ${vip.name} (${vip.role}) at ${cam.id} — Zone ${zone.id}. Escort now.`);
+    addMsg('SMS','Protocol Officer',`VIP confirmed. Clear pathway Zone B → Zone F.`);
+    if(document.getElementById('tab-vip').classList.contains('active')) buildVipLog();
+  } else if(type==='reset') {
+    ZONES.forEach(z=>{ state.densities[z.id]=Math.round(z.cap*(0.15+Math.random()*0.25)); });
+  }
+  refreshUI();
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TAB SWITCHING
+   ══════════════════════════════════════════════════════════════════════ */
+function switchTab(tab,btn) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if(tab==='cams')   buildCamGrid();
+  if(tab==='alerts') buildAlertLog();
+  if(tab==='msgs')   buildMsgLog();
+  if(tab==='vip')    buildVipLog();
+}
+function clearAlerts(){ state.alerts=[]; buildAlertLog(); document.getElementById('stat-alerts').textContent='0'; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   BOOT
+   ══════════════════════════════════════════════════════════════════════ */
+buildZoneGrid(); buildCamGrid(); drawHeatmap(); updateStats(); buildAlertLog(); buildMsgLog(); buildVipLog();
+
+// Try WebSocket connection — falls back to simulation automatically
+connectWS();
+</script>
+</body>
+</html>
